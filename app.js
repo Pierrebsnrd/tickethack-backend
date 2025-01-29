@@ -18,18 +18,6 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 
-app.use((req, res, next) => {
-    if (mongoose.connection.readyState === 1) {
-        return next();
-    }
-
-    res.status(503).json({
-        result: false,
-        message: 'Database not connected.',
-    });
-});
-
-
 const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const tripsRouter = require('./routes/trips');
