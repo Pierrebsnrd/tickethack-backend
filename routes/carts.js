@@ -3,14 +3,9 @@ const router = express.Router();
 
 const Cart = require('../models/carts');
 
-/** Middleware */
-// function isCartIDFieldExists(req, res, next) {
-//     if (!req.query.cartID) {
-//         return res.json({ result: false, message: 'Missing cartID field in params' });
-//     }
+const { getHoursFromDate } = require('../modules/helpers');
 
-//     next();
-// }
+/** Middleware */
 
 function areFieldsExistForSave(req, res, next) {
     const requiredFields = ['tripID', 'cartID'];
@@ -34,7 +29,7 @@ async function isCartExists(req, res, next) {
         return res.json({ result: false, message: 'Missing cartID field in params' });
     }
 
-    const exist = await Cart.exists({ _id: req.params.cartID });
+    const exist = await Cart.exists({_id : req.params.cartID});
 
     if (exist === null) {
         return res.json({ result: false, message: 'Cart does not exist' });
@@ -47,15 +42,22 @@ async function isCartExists(req, res, next) {
 /** Routes */
 /** Route GET /all */
 router.get('/', async (req, res, next) => {
-    const { cartID } = req.query;
+    // const { cartID } = req.query;
 
     try {
-        if (cartID === undefined) {
-            const cart = await Cart.findOne().populate('trips');
-            return res.json({ result: true, cart: cart });
+        // if (cartID === undefined) {
+        const cart = await Cart.findOne({}).populate('trips').lean();
+        // } else {
+            // cart = await Cart.findById(cartID).populate('trips').lean();
+        // }
+
+        if (cart === null) {
+            return res.json({ result: false, cart: {} });
         }
 
-        const cart = await Cart.findById(cartID).populate('trips');
+       for (const trip of cart.trips) {
+            trip.hours = getHoursFromDate(trip.date);
+        }
 
         return res.json({ result: true, cart: cart });
     } catch (e) {
@@ -69,11 +71,16 @@ router.get('/', async (req, res, next) => {
 /** Route POST /save */
 router.post('/save', areFieldsExistForSave, async (req, res, next) => {
     const { tripID, cartID } = req.body;
-    const query = cartID !== '0' ? { _id: cartID } : {};
+    // const query = cartID !== '0' ? { _id: cartID } : {};
 
     try {
+        // const cart = await Cart.findOneAndUpdate(
+        //     { $addToSet: { trips: tripID } },
+        //     { upsert: true, new: true }
+        // );
+
         const cart = await Cart.findOneAndUpdate(
-            query,
+            {},
             { $addToSet: { trips: tripID } },
             { upsert: true, new: true }
         );
@@ -90,11 +97,20 @@ router.post('/save', areFieldsExistForSave, async (req, res, next) => {
 
 
 /** Route DELETE /delete/:cartID */
-router.delete('/delete/:cartID', isCartExists, async (req, res, next) => {
-    const { cartID } = req.params;
+router.delete('/delete/:cartID/:tripID', isCartExists, async (req, res, next) => {
+    const { cartID, tripID } = req.params;
 
     try {
-        await Cart.deleteOne({ '_id': cartID });
+        const updatedCart = await Cart.findByIdAndUpdate(
+            cartID,
+            { $pull: { trips: tripID } },
+            { new: true } 
+        );
+
+        if (updatedCart.trips.length === 0) {
+            await Cart.findByIdAndDelete(cartID);
+            return res.json({ result: true, message: 'Cart deleted because it is empty' });
+        }
 
         return res.json({ result: true, message: 'Cart deleted' });
     } catch (e) {

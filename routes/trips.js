@@ -45,11 +45,13 @@ router.post('/search', validateSearchFields,  async (req, res, next) => {
                 $gte: dateRange[0],
                 $lte: dateRange[1]
             }
-        });
+        }).lean();
 
-        trips = trips.map(trip => trip.date = getHoursFromDate(trip.date));
+        for (const trip of trips) {
+            trip.hours = getHoursFromDate(trip.date);
+        }
 
-        return res.json({ result: true, trips: trips });
+        return res.json({ result: trips.length > 0, trips: trips });
     } catch (e) {
         console.error('Error With Route POST trips/search =>', e);
         return res.json({ result: false, message: e.message });
