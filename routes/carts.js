@@ -70,7 +70,7 @@ router.get('/', async (req, res, next) => {
 
 /** Route POST /save */
 router.post('/save', areFieldsExistForSave, async (req, res, next) => {
-    const { tripID, cartID } = req.body;
+    const { tripID } = req.body;
     // const query = cartID !== '0' ? { _id: cartID } : {};
 
     try {
